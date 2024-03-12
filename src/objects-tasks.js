@@ -391,33 +391,181 @@ function group(array, keySelector, valueSelector) {
  *  For more examples see unit tests.
  */
 
+class CompoundSelector {
+  selectors = [];
+
+  includedTypes = new Set();
+
+  ErrorType = {
+    SINGLE_TYPE: 'single-type',
+    INVALID_ORDER: 'invalid-order',
+  };
+
+  VALID_ORDER = [
+    'element',
+    'id',
+    'class',
+    'attribute',
+    'pseudo-class',
+    'pseudo-element',
+  ];
+
+  constructor(selectorType, selectorValue) {
+    this.selectors.push({ selectorType, selectorValue });
+    this.includedTypes.add(selectorType);
+  }
+
+  element(selectorValue) {
+    const selectorType = 'element';
+    this.addSelectorSingleType(selectorType, selectorValue);
+    return this;
+  }
+
+  id(selectorValue) {
+    const selectorType = 'id';
+    this.addSelectorSingleType(selectorType, selectorValue);
+    return this;
+  }
+
+  class(selectorValue) {
+    const selectorType = 'class';
+    this.addSelector(selectorType, selectorValue);
+    return this;
+  }
+
+  attr(selectorValue) {
+    const selectorType = 'attribute';
+    this.addSelector(selectorType, selectorValue);
+    return this;
+  }
+
+  pseudoClass(selectorValue) {
+    const selectorType = 'pseudo-class';
+    this.addSelector(selectorType, selectorValue);
+    return this;
+  }
+
+  pseudoElement(selectorValue) {
+    const selectorType = 'pseudo-element';
+    this.addSelectorSingleType(selectorType, selectorValue);
+    return this;
+  }
+
+  stringify() {
+    return this.selectors.reduce(
+      (outputStr, selector) =>
+        `${outputStr}${CompoundSelector.stringifySelector(selector)}`,
+      ''
+    );
+  }
+
+  combine(compoundSelector, combinator) {
+    const combinedStr = `${this.stringify()} ${combinator} ${compoundSelector.stringify()}`;
+    const combinedSelector = new CompoundSelector('compound', combinedStr);
+    return combinedSelector;
+  }
+
+  addSelector(selectorType, selectorValue) {
+    this.checkValidOrder(selectorType);
+    this.selectors.push({ selectorType, selectorValue });
+    this.includedTypes.add(selectorType);
+  }
+
+  addSelectorSingleType(selectorType, selectorValue) {
+    this.checkSingleType(selectorType);
+    this.addSelector(selectorType, selectorValue);
+  }
+
+  hasType(selectorType) {
+    return this.includedTypes.has(selectorType);
+  }
+
+  isValidOrder(nextSelectorType) {
+    if (this.selectors.length === 0) {
+      return true;
+    }
+    const lastSelectorIdx = this.selectors.length - 1;
+    const lastSelectorType = this.selectors[lastSelectorIdx].selectorType;
+    const lastTypeOrderIdx = this.VALID_ORDER.indexOf(lastSelectorType);
+    const nextTypeOrderIdx = this.VALID_ORDER.indexOf(nextSelectorType);
+    return nextTypeOrderIdx >= lastTypeOrderIdx;
+  }
+
+  throwError(errorType) {
+    switch (errorType) {
+      case this.ErrorType.SINGLE_TYPE:
+        throw new Error(
+          'Element, id and pseudo-element should not occur more then one time inside the selector'
+        );
+      case this.ErrorType.INVALID_ORDER:
+        throw new Error(
+          'Selector parts should be arranged in the following order: element, id, class, attribute, pseudo-class, pseudo-element'
+        );
+      default:
+        throw new Error('Unknown error');
+    }
+  }
+
+  checkSingleType(selectorType) {
+    if (this.hasType(selectorType)) {
+      this.throwError(this.ErrorType.SINGLE_TYPE);
+    }
+  }
+
+  checkValidOrder(nextSelectorType) {
+    if (!this.isValidOrder(nextSelectorType)) {
+      this.throwError(this.ErrorType.INVALID_ORDER);
+    }
+  }
+
+  static stringifySelector(selector) {
+    const { selectorType, selectorValue } = selector;
+    switch (selectorType) {
+      case 'id':
+        return `#${selectorValue}`;
+      case 'class':
+        return `.${selectorValue}`;
+      case 'attribute':
+        return `[${selectorValue}]`;
+      case 'pseudo-class':
+        return `:${selectorValue}`;
+      case 'pseudo-element':
+        return `::${selectorValue}`;
+      case 'element':
+      case 'compound':
+      default:
+        return selectorValue;
+    }
+  }
+}
+
 const cssSelectorBuilder = {
-  element(/* value */) {
-    throw new Error('Not implemented');
+  element(value) {
+    return new CompoundSelector('element', value);
   },
 
-  id(/* value */) {
-    throw new Error('Not implemented');
+  id(value) {
+    return new CompoundSelector('id', value);
   },
 
-  class(/* value */) {
-    throw new Error('Not implemented');
+  class(value) {
+    return new CompoundSelector('class', value);
   },
 
-  attr(/* value */) {
-    throw new Error('Not implemented');
+  attr(value) {
+    return new CompoundSelector('attribute', value);
   },
 
-  pseudoClass(/* value */) {
-    throw new Error('Not implemented');
+  pseudoClass(value) {
+    return new CompoundSelector('pseudo-class', value);
   },
 
-  pseudoElement(/* value */) {
-    throw new Error('Not implemented');
+  pseudoElement(value) {
+    return new CompoundSelector('pseudo-element', value);
   },
 
-  combine(/* selector1, combinator, selector2 */) {
-    throw new Error('Not implemented');
+  combine(selector1, combinator, selector2) {
+    return selector1.combine(selector2, combinator);
   },
 };
 
