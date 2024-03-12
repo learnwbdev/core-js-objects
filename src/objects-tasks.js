@@ -396,18 +396,38 @@ class CompoundSelector {
 
   includedTypes = new Set();
 
+  SelectorType = {
+    ELEMENT: 'element',
+    ID: 'id',
+    CLASS: 'class',
+    ATTRIBUTE: 'attribute',
+    PSEUDO_CLASS: 'pseudoClass',
+    PSEUDO_ELEMENT: 'pseudoElement',
+    COMPOUND: 'compound',
+  };
+
   ErrorType = {
     SINGLE_TYPE: 'single-type',
     INVALID_ORDER: 'invalid-order',
   };
 
+  SELECTOR_FORMAT = {
+    [this.SelectorType.ELEMENT]: (selectoValue) => selectoValue,
+    [this.SelectorType.ID]: (selectoValue) => `#${selectoValue}`,
+    [this.SelectorType.CLASS]: (selectoValue) => `.${selectoValue}`,
+    [this.SelectorType.ATTRIBUTE]: (selectoValue) => `[${selectoValue}]`,
+    [this.SelectorType.PSEUDO_CLASS]: (selectoValue) => `:${selectoValue}`,
+    [this.SelectorType.PSEUDO_ELEMENT]: (selectoValue) => `::${selectoValue}`,
+    [this.SelectorType.COMPOUND]: (selectoValue) => selectoValue,
+  };
+
   VALID_ORDER = [
-    'element',
-    'id',
-    'class',
-    'attribute',
-    'pseudo-class',
-    'pseudo-element',
+    this.SelectorType.ELEMENT,
+    this.SelectorType.ID,
+    this.SelectorType.CLASS,
+    this.SelectorType.ATTRIBUTE,
+    this.SelectorType.PSEUDO_CLASS,
+    this.SelectorType.PSEUDO_ELEMENT,
   ];
 
   constructor(selectorType, selectorValue) {
@@ -416,53 +436,55 @@ class CompoundSelector {
   }
 
   element(selectorValue) {
-    const selectorType = 'element';
-    this.addSelectorSingleType(selectorType, selectorValue);
+    this.addSelectorSingleType(this.SelectorType.ELEMENT, selectorValue);
     return this;
   }
 
   id(selectorValue) {
-    const selectorType = 'id';
-    this.addSelectorSingleType(selectorType, selectorValue);
+    this.addSelectorSingleType(this.SelectorType.ID, selectorValue);
     return this;
   }
 
   class(selectorValue) {
-    const selectorType = 'class';
-    this.addSelector(selectorType, selectorValue);
+    this.addSelector(this.SelectorType.CLASS, selectorValue);
     return this;
   }
 
   attr(selectorValue) {
-    const selectorType = 'attribute';
-    this.addSelector(selectorType, selectorValue);
+    this.addSelector(this.SelectorType.ATTRIBUTE, selectorValue);
     return this;
   }
 
   pseudoClass(selectorValue) {
-    const selectorType = 'pseudo-class';
-    this.addSelector(selectorType, selectorValue);
+    this.addSelector(this.SelectorType.PSEUDO_CLASS, selectorValue);
     return this;
   }
 
   pseudoElement(selectorValue) {
-    const selectorType = 'pseudo-element';
-    this.addSelectorSingleType(selectorType, selectorValue);
+    this.addSelectorSingleType(this.SelectorType.PSEUDO_ELEMENT, selectorValue);
     return this;
   }
 
   stringify() {
     return this.selectors.reduce(
       (outputStr, selector) =>
-        `${outputStr}${CompoundSelector.stringifySelector(selector)}`,
+        `${outputStr}${this.stringifySelector(selector)}`,
       ''
     );
   }
 
   combine(compoundSelector, combinator) {
     const combinedStr = `${this.stringify()} ${combinator} ${compoundSelector.stringify()}`;
-    const combinedSelector = new CompoundSelector('compound', combinedStr);
+    const combinedSelector = new CompoundSelector(
+      this.SelectorType.COMPOUND,
+      combinedStr
+    );
     return combinedSelector;
+  }
+
+  stringifySelector(selector) {
+    const { selectorType, selectorValue } = selector;
+    return this.SELECTOR_FORMAT[selectorType](selectorValue);
   }
 
   addSelector(selectorType, selectorValue) {
@@ -474,6 +496,18 @@ class CompoundSelector {
   addSelectorSingleType(selectorType, selectorValue) {
     this.checkSingleType(selectorType);
     this.addSelector(selectorType, selectorValue);
+  }
+
+  checkSingleType(selectorType) {
+    if (this.hasType(selectorType)) {
+      this.throwError(this.ErrorType.SINGLE_TYPE);
+    }
+  }
+
+  checkValidOrder(nextSelectorType) {
+    if (!this.isValidOrder(nextSelectorType)) {
+      this.throwError(this.ErrorType.INVALID_ORDER);
+    }
   }
 
   hasType(selectorType) {
@@ -505,38 +539,6 @@ class CompoundSelector {
         throw new Error('Unknown error');
     }
   }
-
-  checkSingleType(selectorType) {
-    if (this.hasType(selectorType)) {
-      this.throwError(this.ErrorType.SINGLE_TYPE);
-    }
-  }
-
-  checkValidOrder(nextSelectorType) {
-    if (!this.isValidOrder(nextSelectorType)) {
-      this.throwError(this.ErrorType.INVALID_ORDER);
-    }
-  }
-
-  static stringifySelector(selector) {
-    const { selectorType, selectorValue } = selector;
-    switch (selectorType) {
-      case 'id':
-        return `#${selectorValue}`;
-      case 'class':
-        return `.${selectorValue}`;
-      case 'attribute':
-        return `[${selectorValue}]`;
-      case 'pseudo-class':
-        return `:${selectorValue}`;
-      case 'pseudo-element':
-        return `::${selectorValue}`;
-      case 'element':
-      case 'compound':
-      default:
-        return selectorValue;
-    }
-  }
 }
 
 const cssSelectorBuilder = {
@@ -557,11 +559,11 @@ const cssSelectorBuilder = {
   },
 
   pseudoClass(value) {
-    return new CompoundSelector('pseudo-class', value);
+    return new CompoundSelector('pseudoClass', value);
   },
 
   pseudoElement(value) {
-    return new CompoundSelector('pseudo-element', value);
+    return new CompoundSelector('pseudoElement', value);
   },
 
   combine(selector1, combinator, selector2) {
