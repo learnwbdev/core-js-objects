@@ -168,75 +168,35 @@ function makeWord(lettersObject) {
  *    sellTickets([25, 25, 50]) => true
  *    sellTickets([25, 100]) => false (The seller does not have enough money to give change.)
  */
-function sellTickets(queue) {
-  const seller = {
-    ticketPrice: 25,
-    banknotes: new Map([
-      [25, 0],
-      [50, 0],
-      [100, 0],
-    ]),
-    queue,
-
-    canSellAll() {
-      let canSellTickets = true;
-      let i = 0;
-      while (canSellTickets && i < this.queue.length) {
-        const givenDenomination = this.queue[i];
-        canSellTickets = this.canSellTicket(givenDenomination);
-        i += 1;
+function sellTickets(queue, banknotes = { b25: 0, b50: 0 }, canSell = true) {
+  if (queue.length === 0 || !canSell) {
+    return canSell;
+  }
+  let canSellCurr = canSell;
+  const banknotesCurr = banknotes;
+  const currBanknote = queue.shift();
+  switch (currBanknote) {
+    case 100:
+      canSellCurr =
+        banknotes.b25 >= 3 || (banknotes.b25 >= 1 && banknotes.b50 >= 1);
+      if (canSellCurr) {
+        banknotesCurr.b50 -= banknotes.b50 >= 1 ? 1 : 0;
+        banknotesCurr.b25 -= banknotes.b50 >= 1 ? 1 : 3;
       }
-      return canSellTickets;
-    },
-
-    canSellTicket(denomination) {
-      if (!this.isValidDenomination(denomination)) {
-        return false;
+      break;
+    case 50:
+      canSellCurr = banknotes.b25 >= 1;
+      if (canSellCurr) {
+        banknotesCurr.b25 -= 1;
+        banknotesCurr.b50 += 1;
       }
-      let canSell = false;
-      const changeToGive = denomination - this.ticketPrice;
-      if (changeToGive === 0) {
-        canSell = true;
-      }
-      if (changeToGive === 25 && this.getBanknoteQty(25) >= 1) {
-        canSell = true;
-        this.changeBanknoteQty(25, -1);
-      }
-      if (
-        changeToGive === 75 &&
-        this.getBanknoteQty(50) >= 1 &&
-        this.getBanknoteQty(25) >= 1
-      ) {
-        canSell = true;
-        this.changeBanknoteQty(25, -1);
-        this.changeBanknoteQty(50, -1);
-      }
-      if (changeToGive === 75 && this.getBanknoteQty(25) >= 3) {
-        canSell = true;
-        this.changeBanknoteQty(25, -3);
-      }
-      if (canSell) {
-        this.changeBanknoteQty(denomination, 1);
-      }
-      return canSell;
-    },
-    isValidDenomination(denomination) {
-      return this.banknotes.has(denomination);
-    },
-    getBanknoteQty(denomination) {
-      return this.isValidDenomination(denomination)
-        ? this.banknotes.get(denomination)
-        : 0;
-    },
-    changeBanknoteQty(denomination, deltaQty) {
-      if (this.isValidDenomination(denomination)) {
-        const currQty = this.banknotes.get(denomination);
-        this.banknotes.set(denomination, currQty + deltaQty);
-      }
-    },
-  };
-
-  return seller.canSellAll();
+      break;
+    case 25:
+    default:
+      canSellCurr = true;
+      banknotesCurr.b25 += 1;
+  }
+  return sellTickets(queue, banknotesCurr, canSellCurr);
 }
 
 /**
