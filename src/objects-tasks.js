@@ -168,8 +168,75 @@ function makeWord(lettersObject) {
  *    sellTickets([25, 25, 50]) => true
  *    sellTickets([25, 100]) => false (The seller does not have enough money to give change.)
  */
-function sellTickets(/* queue */) {
-  throw new Error('Not implemented');
+function sellTickets(queue) {
+  const seller = {
+    ticketPrice: 25,
+    banknotes: new Map([
+      [25, 0],
+      [50, 0],
+      [100, 0],
+    ]),
+    queue,
+
+    canSellAll() {
+      let canSellTickets = true;
+      let i = 0;
+      while (canSellTickets && i < this.queue.length) {
+        const givenDenomination = this.queue[i];
+        canSellTickets = this.canSellTicket(givenDenomination);
+        i += 1;
+      }
+      return canSellTickets;
+    },
+
+    canSellTicket(denomination) {
+      if (!this.isValidDenomination(denomination)) {
+        return false;
+      }
+      let canSell = false;
+      const changeToGive = denomination - this.ticketPrice;
+      if (changeToGive === 0) {
+        canSell = true;
+      }
+      if (changeToGive === 25 && this.getBanknoteQty(25) >= 1) {
+        canSell = true;
+        this.changeBanknoteQty(25, -1);
+      }
+      if (
+        changeToGive === 75 &&
+        this.getBanknoteQty(50) >= 1 &&
+        this.getBanknoteQty(25) >= 1
+      ) {
+        canSell = true;
+        this.changeBanknoteQty(25, -1);
+        this.changeBanknoteQty(50, -1);
+      }
+      if (changeToGive === 75 && this.getBanknoteQty(25) >= 3) {
+        canSell = true;
+        this.changeBanknoteQty(25, -3);
+      }
+      if (canSell) {
+        this.changeBanknoteQty(denomination, 1);
+      }
+      return canSell;
+    },
+    isValidDenomination(denomination) {
+      return this.banknotes.has(denomination);
+    },
+    getBanknoteQty(denomination) {
+      return this.isValidDenomination(denomination)
+        ? this.banknotes.get(denomination)
+        : 0;
+    },
+    changeBanknoteQty(denomination, deltaQty) {
+      if (this.isValidDenomination(denomination)) {
+        const currQty = this.banknotes.get(denomination);
+        this.banknotes.set(denomination, currQty + deltaQty);
+      }
+    },
+  };
+
+  return seller.canSellAll();
 }
 
 /**
